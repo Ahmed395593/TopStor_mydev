@@ -94,16 +94,12 @@ then
 	echo $myhost > /etc/hostname
 	echo frstreboot > /root/hostname
 	echo InitiatorName=iqn.1994-05.com.redhat:$myhost > /etc/iscsi/initiatorname.iscsi
-	sync
-	zpool export -a 2>/dev/null
 	reboot
 fi
 cat /root/hostname | grep frstreboot
 if [ $? -eq 0 ];
 then
 	echo $myhost > /root/hostname
-	sync
-	zpool export -a 2>/dev/null
 	reboot
 fi
 echo l$cmdline | grep restart
@@ -140,8 +136,6 @@ then
 		echo $cmdline | egrep 'reboot|reset'
 		if [ $? -eq 0 ];
 		then
-			sync
-			zpool export -a 2>/dev/null
 			reboot
 		fi
 		echo $cmdline | grep 'stop'
