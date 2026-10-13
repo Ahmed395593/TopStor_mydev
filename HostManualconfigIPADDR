@@ -12,7 +12,10 @@ passedleaderip=`echo $@ | awk '{print $3}'`
 # where it is trivially "the leader" of nothing, so the local lookup above
 # resolves to a bogus self-referential leaderip on that node. Prefer the
 # real leaderip the caller (Hostconfig.py) already knows, when provided.
-if [ -n "$passedleaderip" ];
+# checksyncs.py calls this as "leader leaderip myhost myhostip", so the third argument is then a
+# host name, not the leader ip: only take it when it really is an ip address.
+echo $passedleaderip | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'
+if [ $? -eq 0 ];
 then
  leaderip=$passedleaderip
 fi
