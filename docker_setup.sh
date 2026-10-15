@@ -192,8 +192,15 @@ then
 	then
 		mynode=$ipaddr
 	else
-		x=$(( ( RANDOM % 40 )  + 3 ))
-		mynode='10.11.11.'$x'/24'
+		# keep the address mynode already has, or an unconfigured node moves to a new random ip on every restart;
+		# only a node with no mynode yet (first boot, or after reset deleted it) picks a random one.
+		mynode=`nmcli conn show mynode 2>/dev/null | grep ipv4.addresses | awk '{print $2}'`
+		echo S$mynode | grep -q '/'
+		if [ $? -ne 0 ];
+		then
+			x=$(( ( RANDOM % 40 )  + 3 ))
+			mynode='10.11.11.'$x'/24'
+		fi
 	fi
 	nmcli conn delete mynode
 	nmcli conn add con-name mynode type bond ifname $mynodedev ip4 $mynode
