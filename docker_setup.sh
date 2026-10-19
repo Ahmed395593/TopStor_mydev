@@ -202,7 +202,10 @@ then
 	nmcli conn add con-name clusterstub type bond ifname $myclusterdev ip4 169.168.12.12 
 	#nmcli conn up clusterstub 
 
-	ping -w 3 10.11.11.250
+	# QCFIX: one ping at boot (network often still unreachable) made a joining node declare itself primary
+	pingrc=1
+	for _try in 1 2 3 4 5 6 7 8 9 10; do ping -c1 -w 3 10.11.11.250 && { pingrc=0; break; }; sleep 2; done
+	(exit $pingrc)
 	if [ $? -ne 0 ];
 	then
 		mycluster='10.11.11.250/24'

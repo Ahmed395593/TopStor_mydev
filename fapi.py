@@ -2727,6 +2727,9 @@ def getNodeConfigFile(data):
     getConfig(leaderip, nodeName)
     downloadConfig(leaderip, myhost)
     file_path = "/TopStordata/config_" + nodeName + ".txt"
+    # QCFIX: a missing file was an unhandled FileNotFoundError (HTTP 500 + debugger page)
+    if not os.path.isfile(file_path):
+        return jsonify({'response': 'error', 'message': 'no config file for node ' + nodeName + ' (is it ready?)'}), 404
     return send_file(file_path, mimetype='text/plain', as_attachment=True)
 
 @app.route('/api/v1/hosts/getAllConfig', methods=['GET','POST'])
@@ -2746,10 +2749,16 @@ def getAllConfigFiles(data):
         nodeip = host['ip']
         filePath = "/TopStordata/config_" + nodeName + ".txt"
         configFiles.append((filePath, 'config_'+nodeName + ".txt"))
+    # QCFIX: zip the files that exist and report the missing ones instead of failing on the first
+    missing = [f[1] for f in configFiles if not os.path.isfile(f[0])]
     with zipfile.ZipFile(zipfilePath, "w") as zipF:
         for file in configFiles:
-            zipF.write(file[0], file[1] ,compress_type = zipfile.ZIP_DEFLATED)
-    return send_file(zipfilePath, as_attachment=True)
+            if os.path.isfile(file[0]):
+                zipF.write(file[0], file[1] ,compress_type = zipfile.ZIP_DEFLATED)
+    resp = send_file(zipfilePath, as_attachment=True)
+    if missing:
+        resp.headers['X-Missing-Configs'] = ','.join(missing)
+    return resp
 
 @app.route('/api/v1/software/update', methods=['GET','POST'])
 @login_required

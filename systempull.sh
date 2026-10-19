@@ -1,4 +1,5 @@
 #!/bin/sh
+[ -f /root/no_repopull ] && { echo "repull disabled by /root/no_repopull"; exit 0; }
 # --- FLAVOUR HAND-OVER: in the container flavour run the c- variant of this script ---
 [ -f /TopStor/flavor.sh ] && . /TopStor/flavor.sh
 if is_container 2>/dev/null && [ -f "/TopStor/c$(basename "$0")" ]; then
