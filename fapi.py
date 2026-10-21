@@ -2237,7 +2237,10 @@ def volumedel(data):
   return {'response': 'baduser'}
  getalltime()
  pool = allinfo['volumes'][data['name']]['pool']
- data['owner'] = allinfo['volumes'][data['name']]['host']
+ # The dataset is where the POOL is imported now (the same owner volume/pool delete use for the pool itself).  After a take over
+ # the volume record can still name the old host: the delete then ran on a node without the dataset, the share, the address and the
+ # record stayed on the node that really serves the volume (stale volumes/addresses that came back, seen with the snapshots test).
+ data['owner'] = allinfo['pools'].get(pool, {}).get('host') or allinfo['volumes'][data['name']]['host']
  ownerip = allinfo['hosts'][data['owner']]['ipaddress']
  cmndstring = "/TopStor/VolumeDelete"+data['type']+" "+leaderip+" "+pool+" "+data['name']+" "+data['type']+" "+data['user']
  postchange(cmndstring,data['owner'])
