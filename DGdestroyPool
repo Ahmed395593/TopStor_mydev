@@ -133,6 +133,8 @@ echo iam in >> /root/tmp2
    ETCDCTL_API=3 /pace/etcdput.py $leaderip sync/pools/Del_pools_${pool}/request/$leader pools_$stamp
 fi
 /pace/etcddel.py $leaderip destroying/$pool
+# the group size note (vdevmin) is removed again at the very end: the optimizer could write it again while the pool was being destroyed
+/pace/etcddel.py $leaderip vdevmin/$pool
 /pace/etcddel.py $leaderip requests/DGdestroypool/$myhost $myhost/$userreq
 #systemctl restart zfs-zed
  docker exec etcdclient /TopStor/logqueue.py `basename "$0"` stop $userreq 
