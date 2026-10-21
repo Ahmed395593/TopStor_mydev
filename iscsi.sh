@@ -21,6 +21,13 @@ else
  nmcli conn mod cmynode +ipv4.addresses ${ipaddr}/$ipsubnet
  nmcli conn up cmynode
 fi
+# Announce the address (gratuitous ARP, as docker_primary.sh does for the cluster IP).  After a take over the clients still
+# have another MAC cached for it (the old owner, or whatever answered while nobody owned it) and could not connect until
+# that entry expired: the proxy could not log in to the LUN served by the new node.
+for garpdev in `ip -o -4 route show to match $ipaddr 2>/dev/null | grep -v '^default' | sed -n 's/.* dev \([^ ]*\).*/\1/p' | sort -u`
+do
+ arping -U -c 2 -I $garpdev -s $ipaddr $ipaddr >/dev/null 2>&1
+done
 enpdev='enp0s8'
 portalport=`echo $@ | awk '{print $6}'`
 targetiqn=`echo $@ | awk '{print $7}'`
