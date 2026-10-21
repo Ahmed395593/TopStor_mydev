@@ -101,6 +101,10 @@ echo iam in >> /root/tmp2
  ETCDCTL_API=3 /pace/etcdput.py $leaderip sync/poolnxt/Del_poolnxt_${pool}/request poolnxt_$stamp
  ETCDCTL_API=3 /pace/etcdput.py $leaderip sync/poolnxt/Del_poolnxt_${pool}/request/$leader poolnxt_$stamp
  sleep 2
+ # the pool is imported by its id when its NAME is ambiguous: disks that came back after a node death still carry the labels of an
+ # older state of the same pool name, 'zpool import <name>' then says 'more than one matching pool', the destroy failed (DGfa5) after the
+ # registry entries had been deleted, and the pool stayed on the disks as an unregistered zombie that a node imported later
+ poolguid=`/sbin/zpool get -H -o value guid $pool 2>/dev/null`
  /sbin/zpool export -f $pool
  sleep 1
  # the import right after the export sometimes finds no pool ("cannot import: no such pool available") while the
@@ -108,6 +112,7 @@ echo iam in >> /root/tmp2
  imptry=0
  while :; do
   /sbin/zpool import $pool 2>/root/dgdestroyerror && break
+  if [ -n "$poolguid" ]; then /sbin/zpool import $poolguid 2>>/root/dgdestroyerror && break; fi
   imptry=$((imptry+1))
   echo "zpool import $pool retry $imptry: `cat /root/dgdestroyerror`" >> /root/dgdestroyretry
   [ $imptry -ge 10 ] && break
@@ -120,6 +125,12 @@ echo iam in >> /root/tmp2
    docker exec etcdclient /TopStor/logmsg.py DGfa5 error $userreq $pool
  else
    docker exec etcdclient /TopStor/logmsg.py DGsu5 info $userreq $pool 
+   # older states of the same pool name left on returned disks: destroy them too, or a node imports them as a zombie later
+   for lft in 1 2 3 4 5; do
+    oid=`/sbin/zpool import 2>/dev/null | awk -v p="$pool" '$1=="pool:"{cur=$2} $1=="id:" && cur==p {print $2; exit}'`
+    [ -z "$oid" ] && break
+    /sbin/zpool import -f -N $oid >/dev/null 2>&1 && /sbin/zpool destroy -f $pool >/dev/null 2>&1
+   done
    # the pool is gone: whatever a node's import loop wrote for it meanwhile (poolnxt/pools, also the doubled-p variants seen in
    # QC test 10) must not survive; a node importing the stale name held the disks of the next pool 'in use' (QSD5.326)
    stamp=`date +%s`
