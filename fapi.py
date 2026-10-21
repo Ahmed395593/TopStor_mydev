@@ -1806,6 +1806,14 @@ def volumesnapshotscreate(data):
 
 
 
+
+def size_to_gib(size):
+ # '10G', '500M', '2T', '1.5GB' -> GiB; a bare number is bytes (as the volume scripts read it); None when it cannot be read
+ m = re.match(r'^\s*([0-9]*\.?[0-9]+)\s*([KMGTP]?)(?:I?B)?\s*$', str(size).upper())
+ if not m:
+  return None
+ return float(m.group(1)) * {'': 1.0/1024**3, 'K': 1.0/1024**2, 'M': 1.0/1024, 'G': 1.0, 'T': 1024.0, 'P': 1024.0**2}[m.group(2)]
+
 @app.route('/api/v1/volumes/create', methods=['GET','POST'])
 @login_required
 @audit_command
@@ -1831,6 +1839,16 @@ def volumecreate(data):
   # no pool chosen / unknown pool: a clean answer instead of a KeyError (HTTP 500)
   logmsg.sendlog('Volpool1','error',loggedusers[data['token']]['user'],str(data.get('name','')))
   data['error'] = 'nopool'
+  return data
+ # a volume larger than the whole pool is refused (it used to be created and reported as a success: the quota could never be used)
+ volgib = size_to_gib(data.get('size', ''))
+ try:
+  poolgib = float(allinfo['pools'][data['pool']].get('size') or 0)
+ except (TypeError, ValueError):
+  poolgib = 0
+ if volgib is not None and poolgib > 0 and volgib > poolgib:
+  logmsg.sendlog('Volsiz1','error',loggedusers[data['token']]['user'],str(data.get('name','')),data['pool'])
+  data['error'] = 'sizetoolarge'
   return data
  ownerip = allinfo['hosts'][allinfo['pools'][data['pool']]['host']]['ipaddress']
  data['owner'] = allinfo['hosts'][allinfo['pools'][data['pool']]['host']]['name']
