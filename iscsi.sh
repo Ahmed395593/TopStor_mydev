@@ -11,9 +11,16 @@ ipaddr=`echo $@ | awk '{print $3}'`
 ipsubnet=`echo $@ | awk '{print $4}'`
 vtype=`echo $@ | awk '{print $5}'`
 #docker rm -f $resname
-nmcli conn mod cmynode -ipv4.addresses ${ipaddr}/$ipsubnet
-nmcli conn mod cmynode +ipv4.addresses ${ipaddr}/$ipsubnet
-nmcli conn up cmynode
+# Only touch NetworkManager when the address is really missing.  VolumeCheck re-runs this script every 10 s while a LUN is
+# not in the target table, and the unconditional remove/add + 'conn up' re-applied bond0 each time (link down/up every few
+# seconds, node unreachable, iSCSI logins failing).
+if ip -4 -o addr show | grep -qw "${ipaddr}/${ipsubnet}" && nmcli -g ipv4.addresses conn show cmynode 2>/dev/null | tr ', |' '\n' | grep -qw "${ipaddr}/${ipsubnet}"; then
+ echo "address ${ipaddr}/${ipsubnet} already present, network left untouched"
+else
+ nmcli conn mod cmynode -ipv4.addresses ${ipaddr}/$ipsubnet
+ nmcli conn mod cmynode +ipv4.addresses ${ipaddr}/$ipsubnet
+ nmcli conn up cmynode
+fi
 enpdev='enp0s8'
 portalport=`echo $@ | awk '{print $6}'`
 targetiqn=`echo $@ | awk '{print $7}'`
