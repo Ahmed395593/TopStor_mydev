@@ -31,8 +31,12 @@ docker  rm -f $resname
 cat /TopStordata/smb.$volip | grep start | grep only
 if [ $? -ne 0 ]
 then 
-  nmcli conn mod cmynode -ipv4.addresses $volip 
-  nmcli conn up cmynode
+  # nmcli only matches the address WITH its prefix; without it the address stayed on the node for ever
+  for full in `nmcli -g ipv4.addresses conn show cmynode | tr ", " "\n" | grep "^${volip}/"` `ip -4 -o addr show | awk "{print \$4}" | grep "^${volip}/"`; do
+   nmcli conn mod cmynode -ipv4.addresses $full
+   ip addr del $full dev bond0 2>/dev/null
+  done
+  nmcli conn mod cmynode -ipv4.addresses $volip 2>/dev/null
   rm -rf /TopStordata/smb.$volip;
 else
  mounts=`cat /TopStordata/smb.$volip | grep '\[' | sed 's/\[//g' | sed 's/\]//g' | sed ':a;N;$!ba;s/\n/,/g'`
