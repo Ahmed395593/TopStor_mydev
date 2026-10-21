@@ -121,7 +121,7 @@ then
  if [ $? -ne 0 ];
  then
   writevtemp=`echo $writev | sed 's/\,/ /g'`
-  for grp in $writevtemp ;do  setfacl -R -m g:$grp:rwx /$DG/$name; done
+  for grp in $writevtemp ;do  setfacl -R -m g:$grp:rwx /$DG/$name; setfacl -R -d -m g:$grp:rwx /$DG/$name; done
  fi
  setfacl -d -m o::--- /$DG/$name
 
