@@ -105,6 +105,9 @@ echo iam in >> /root/tmp2
  # older state of the same pool name, 'zpool import <name>' then says 'more than one matching pool', the destroy failed (DGfa5) after the
  # registry entries had been deleted, and the pool stayed on the disks as an unregistered zombie that a node imported later
  poolguid=`/sbin/zpool get -H -o value guid $pool 2>/dev/null`
+ # the devices of the pool: a destroyed pool keeps its labels on them, and the labels of members that were replaced earlier stay on
+ # their old disks as well; the import loop of the cluster adopts such a leftover as a 'new' pool (the zombie that came back after every delete)
+ pooldevs=`/sbin/zpool status -P $pool 2>/dev/null | awk '$1 ~ /^\/dev\// {print $1}'`
  /sbin/zpool export -f $pool
  sleep 1
  # the import right after the export sometimes finds no pool ("cannot import: no such pool available") while the
@@ -125,11 +128,18 @@ echo iam in >> /root/tmp2
    docker exec etcdclient /TopStor/logmsg.py DGfa5 error $userreq $pool
  else
    docker exec etcdclient /TopStor/logmsg.py DGsu5 info $userreq $pool 
+   for dv in $pooldevs; do /sbin/zpool labelclear -f $dv >/dev/null 2>&1; /sbin/zpool labelclear -f ${dv%-part1} >/dev/null 2>&1; done
    # older states of the same pool name left on returned disks: destroy them too, or a node imports them as a zombie later
    for lft in 1 2 3 4 5; do
     oid=`/sbin/zpool import 2>/dev/null | awk -v p="$pool" '$1=="pool:"{cur=$2} $1=="id:" && cur==p {print $2; exit}'`
     [ -z "$oid" ] && break
-    /sbin/zpool import -f -N $oid >/dev/null 2>&1 && /sbin/zpool destroy -f $pool >/dev/null 2>&1
+    if /sbin/zpool import -f -N $oid >/dev/null 2>&1; then
+     lftdevs=`/sbin/zpool status -P $pool 2>/dev/null | awk '$1 ~ /^\/dev\// {print $1}'`
+     /sbin/zpool destroy -f $pool >/dev/null 2>&1
+     for dv in $lftdevs; do /sbin/zpool labelclear -f $dv >/dev/null 2>&1; /sbin/zpool labelclear -f ${dv%-part1} >/dev/null 2>&1; done
+    else
+     break
+    fi
    done
    # the pool is gone: whatever a node's import loop wrote for it meanwhile (poolnxt/pools, also the doubled-p variants seen in
    # QC test 10) must not survive; a node importing the stale name held the disks of the next pool 'in use' (QSD5.326)
