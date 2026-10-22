@@ -17,8 +17,7 @@ data1dev=$eth2
 data2dev=$eth2
 setenforce 0
 #targetcli clearconfig confirm=true
-nmcli conn mod cmynode +ipv4.addresses $myclusterip 
-nmcli conn up cmynode
+/TopStor/netaddr.sh add $myclusterip/32
 # Tell the network that the cluster ip lives here now (gratuitous ARP).  Without it a client that talked to the
 # old leader keeps the cluster ip on the dead node's MAC until its own ARP entry ages (measured: 34-47 s, although
 # this node served the UI and the API after ~19 s).  NetworkManager's own announcement is not enough: it goes out on
