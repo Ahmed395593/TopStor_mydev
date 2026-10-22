@@ -12,9 +12,7 @@ echo name $resname >> /root/cifstmp
 echo mounts $mounts >> /root/cifstmp
 echo ip and subnet $ipaddr $ipsubnet >> /root/cifstmp
 docker rm -f $resname
-nmcli conn mod cmynode -ipv4.addresses ${ipaddr}/$ipsubnet
-nmcli conn mod cmynode +ipv4.addresses ${ipaddr}/$ipsubnet
-nmcli conn up cmynode
+/TopStor/netaddr.sh add ${ipaddr}/$ipsubnet
 echo $vtype | grep '_' 
 if [ $? -ne 0 ];
 then
@@ -72,7 +70,7 @@ else
 		nmcli conn modify cmynode ipv4.dns $domainsrvi
 		echo nmcli conn modify cmynode ipv4.dns $domainsrvi
 	fi
-	nmcli conn up cmynode
+	/TopStor/netaddr.sh reapply
  	sync
  	adminpass=`echo $adminpass | sed 's/\@\@sep/\//g'`
  	adminpass=`/TopStor/decthis.sh $domain $adminpass | awk -F'_result' '{print $2}' `

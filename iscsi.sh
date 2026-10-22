@@ -17,9 +17,7 @@ vtype=`echo $@ | awk '{print $5}'`
 if ip -4 -o addr show | grep -qw "${ipaddr}/${ipsubnet}" && nmcli -g ipv4.addresses conn show cmynode 2>/dev/null | tr ', |' '\n' | grep -qw "${ipaddr}/${ipsubnet}"; then
  echo "address ${ipaddr}/${ipsubnet} already present, network left untouched"
 else
- nmcli conn mod cmynode -ipv4.addresses ${ipaddr}/$ipsubnet
- nmcli conn mod cmynode +ipv4.addresses ${ipaddr}/$ipsubnet
- nmcli conn up cmynode
+ /TopStor/netaddr.sh add ${ipaddr}/$ipsubnet
 fi
 # Announce the address (gratuitous ARP, as docker_primary.sh does for the cluster IP).  After a take over the clients still
 # have another MAC cached for it (the old owner, or whatever answered while nobody owned it) and could not connect until

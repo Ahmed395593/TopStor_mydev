@@ -21,9 +21,7 @@ echo name $resname >> /root/nfstmp
 echo mounts $mounts >> /root/nfstmp
 echo ip and subnet $ipaddr $ipsubnet >> /root/cifstmp
 docker rm -f $resname
-nmcli conn mod cmynode -ipv4.addresses ${ipaddr}/$ipsubnet
-echo nmcli conn mod cmynode -ipv4.addresses ${ipaddr}/$ipsubnet
-nmcli conn up cmynode
+/TopStor/netaddr.sh del ${ipaddr}/$ipsubnet
 counter=20
 while [ $counter -gt 1 ];
 do
@@ -37,8 +35,7 @@ do
 	fi
 done
 flag=0
-nmcli conn mod cmynode +ipv4.addresses ${ipaddr}/$ipsubnet
-nmcli conn up cmynode
+/TopStor/netaddr.sh add ${ipaddr}/$ipsubnet
 	writes2=${writes#_vol_}
 	while [[ $writes2 == *_vol_* ]]; do
 		current_volinfo=${writes2%%_vol_*}
