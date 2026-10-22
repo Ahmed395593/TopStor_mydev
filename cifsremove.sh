@@ -13,6 +13,7 @@ docker exec etcdclient /TopStor/logqueue.py `basename "$0"` running $userreq
 /TopStor/etcddel.py $leaderip vol $vol
 /TopStor/etcddel.py $leaderip replivol $vol
 /TopStor/etcddel.py $leaderip size $vol 
+/TopStor/etcddel.py $leaderip sizevol/$pool/$vol
 #/TopStor/deltolocal.py size $vol 
 #/TopStor/deltolocal.py vol $vol 
 /TopStor/crondelete $vol

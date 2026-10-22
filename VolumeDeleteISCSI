@@ -46,6 +46,7 @@ then
  else
   rm -rf /$DG/iscsi.$volname /TopStordata/iscsi.$volname
   /pace/etcddel.py $leaderip volume $volname
+  /pace/etcddel.py $leaderip sizevol/$DG/$volname
   # QSD5.242: the target of the address (iqn.2016-03.com.<ip without dots>:data) and the address itself stay behind when
   # the last LUN of the target is gone; remove both, otherwise the target is still discoverable and the address still answers
   if [ -n "$iscsiip" ]
