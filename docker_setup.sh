@@ -652,7 +652,13 @@ fi
 nmcli con modify cmynode bond.options "mode=active-backup,miimon=100,fail_over_mac=1"
 nmcli conn down cmynode && nmcli conn up cmynode
 docker rm -f promexport
-docker run -d -p $mynodeip:9100:9100 -v /proc:/proc -v /sys:/sys --name promexport prom/node-exporter
+# the address of cmynode is not always usable yet right after 'conn up' (boot): the port publish then fails ("Error starting userland proxy"),
+# the exporter was never started again and Prometheus had no data of this node (Performance page showed one node only)
+for promexport_try in 1 2 3 4 5 6 7 8 9 10 11 12; do
+	docker rm -f promexport >/dev/null 2>&1
+	docker run -d -p $mynodeip:9100:9100 -v /proc:/proc -v /sys:/sys --name promexport prom/node-exporter && break
+	sleep 5
+done
 docker rm -f promcadvisor
 docker run   --volume=/:/rootfs:ro   --volume=/var/run:/var/run:ro   --volume=/sys:/sys:ro   --volume=/var/lib/docker/:/var/lib/docker:ro   --volume=/dev/disk/:/dev/disk:ro   --publish=$mynodeip:9101:8080   --detach=true   --name=promcadvisor   --privileged   --device=/dev/kmsg   gcr.io/cadvisor/cadvisor
 /TopStor/registerports.sh $myclusterip
