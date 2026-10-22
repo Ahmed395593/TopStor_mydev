@@ -14,7 +14,7 @@ import re, ipaddress, traceback
 import Hostsconfig
 from Hostconfig import config
 from allphysicalinfo import getall, initallphy
-from uservalid import check_new_user_coded, logname
+from uservalid import check_new_user_coded, check_password, logname
 from UnixChkUser import setlogin
 import sqlite3
 from etcdget2 import etcdgetjson
@@ -2041,10 +2041,19 @@ def changepass(data):
  if 'baduser' in data['response']:
   return {'response': 'baduser'}
  data['user'] = data['response']
+ # the new password is checked here, so the answer says what happened (it used to echo the parameters even when the password was
+ # refused later by the script); the raw value is read because login_required strips blanks from the parameters
+ reason = check_password(request.args.get('password', data.get('password')))
+ if reason:
+  logmsg.sendlog('Unlinfa12','error',data['user'],str(data.get('username','')))
+  data['changepass'] = 'rejected: '+reason
+  data['response'] = 'rejected'
+  return data
  print('#############################')
  print(data)
  print('###########################')
  config(leader, leaderip,myhost, data)
+ data['changepass'] = 'accepted'
  return data
 
 

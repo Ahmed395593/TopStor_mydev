@@ -122,6 +122,9 @@ then
 	echo useradd \-c"TopStor"$pas $homebase \-p $userpass \-s /usr/sbin/nologin $username
  	useradd -c"TopStor"$pas $homebase -p $userpass -s /usr/sbin/nologin $username 
  fi
+ # publish the login hash NOW: the home volume below takes 10-30 s, and the hash used to be written only after it, so a new user
+ # could not log in for that long (the later put of the same value stays)
+ /TopStor/etcdput.py $etcd 'usershash/'$username $pas
  echo $pullsync | grep pull
  if [ $? -ne 0 ]
  then

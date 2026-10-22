@@ -85,6 +85,10 @@ def config(leader, leaderip, myhost, *bargs):
    cmdlinep=['/TopStor/encthis.sh',arglist['username'],arglist['password']]
    encthis=subprocess.run(cmdlinep,stdout=subprocess.PIPE).stdout.decode('utf-8').split('_result')[1]
    put(leaderip, 'usershash/'+arglist['username'], encthis)
+   if arglist['username'] == 'admin':
+    # UnixChkUser accepts 'usershashadm' (the install-time password) for 330 s after a node (re)start: it must follow the change,
+    # or the old password logs in again after every restart / take over
+    put(leaderip, 'usershashadm/admin', encthis)
    # QSD5.318: only this user's earlier request; every request still waiting for a node that is down (or not yet applied)
    # used to be deleted here -- the next password change of ANY user erased the admin change a stopped node had not seen
    dels(leaderip, 'sync', 'UnixChangePass_'+arglist['username']+'_')
