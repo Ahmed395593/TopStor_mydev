@@ -121,8 +121,7 @@ do
 	echo adding 254 and docker
 		stamp=`date +%s`
 		stamp=$((stamp+300))
-		nmcli conn mod cmynode +ipv4.addresses 10.11.11.254/24
-		nmcli conn up cmynode
+		/TopStor/netaddr.sh add 10.11.11.254/24
 		/TopStor/httpdflask.sh $leaderip yes
 		initip=2
 	fi
@@ -132,8 +131,7 @@ do
 		if [ $stamp2 -ge $stamp ];
 		then
 			docker rm -f httpd_local
-			nmcli conn mod cmynode -ipv4.addresses 10.11.11.254/24
-			nmcli conn up cmynode
+			/TopStor/netaddr.sh del 10.11.11.254/24
 			initip=3
 		fi
 	fi
