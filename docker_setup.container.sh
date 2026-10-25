@@ -847,7 +847,7 @@ docker rm -f promexport
 for promexport_try in 1 2 3 4 5 6 7 8 9 10 11 12; do
 	docker rm -f promexport >/dev/null 2>&1
 	mkdir -p /TopStordata/textfile
-	docker run --rm -d -p $mynodeip:9100:9100 -v /proc:/proc -v /sys:/sys -v /TopStordata/textfile:/textfile:ro --name promexport prom/node-exporter --collector.textfile.directory=/textfile && break
+	docker run --rm -d --restart unless-stopped -p $mynodeip:9100:9100 -v /proc:/proc -v /sys:/sys -v /TopStordata/textfile:/textfile:ro --name promexport prom/node-exporter --collector.textfile.directory=/textfile && break
 	sleep 5
 done
 docker rm -f promcadvisor
