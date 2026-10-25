@@ -1,0 +1,156 @@
+#!/bin/sh
+export ETCDCTL_API=3
+cd /TopStor
+echo $@ > /root/volcreatehome
+
+leaderip=`echo $@ | awk '{print $1}'`;
+shortname=`echo $@ | awk '{print $3}'`;
+pullsync='nothing'
+echo $shortname | grep '_repli'
+if [ $? -eq 0 ];
+then
+ pullrepli='pullrepli'
+ name=`echo $shortname | sed 's/\_repli//g'` 
+ shortname=`echo $shortname | awk -F'_' '{print $1}'`
+else
+ nameid=$RANDOM$RANDOM
+ name=${shortname}_$nameid
+fi
+echo names: $shortname $name
+pDG=`echo $@ | awk '{print $2}'`;
+quota=`echo $@ | awk '{print $4}'`;
+writev=`echo $@ | awk '{print $5}'`;
+ipaddr=`echo $@ | awk '{print $6}'`;
+ipsubnet=`echo $@ | awk '{print $7}'`;
+active=`echo $@ | awk '{print $8}'`;
+userreq=` echo $@ | awk '{print $9}'`;
+# compression=<lz4|off> and dedup=<on|off> arrive as key=value words at the end of the command line (default: both on)
+zcomp=`echo "$@" | grep -o 'compression=[a-z0-9]*' | head -1 | cut -d= -f2`
+[ "$zcomp" = "off" ] || zcomp=lz4
+zdedup=`echo "$@" | grep -o 'dedup=[a-z]*' | head -1 | cut -d= -f2`
+[ "$zdedup" = "off" ] || zdedup=on
+DG=$pDG;
+hi=`whoami`
+echo start $hi $userreq > /root/volcreate
+echo queuedrunning >> /root/volcreate
+
+privilege="HOME";
+./privthis.sh $privilege $userreq | grep true ;
+if [ $? -eq 0 ];
+then
+	myhost=`docker exec etcdclient /TopStor/etcdgetlocal.py clusternode`
+        myhostip=`docker exec etcdclient /TopStor/etcdgetlocal.py clusternodeip`
+        leader=`docker exec etcdclient /TopStor/etcdgetlocal.py leader`
+        echo $leader | grep $myhost
+        if [ $? -ne 0 ];
+        then
+                etcd=$myhostip
+        else
+                etcd=$leaderip
+        fi
+  	docker exec etcdclient /TopStor/logqueue.py `basename "$0"` running $userreq
+ 
+ # Check if user already has a home folder
+ current_userinfo=$(/pace/etcdget.py $leaderip usersinfo/$shortname 2>/dev/null)
+ 
+ # etcdget answers "_1" for a key that does not exist: that is "no such user yet" (UnixAddUser calls this script BEFORE it
+ # writes usersinfo/<user>), not an existing user.  Taking "_1" for a user made every new user with a home pool
+ # look like one that already has a home folder, and no home folder was ever created (QSD5.237, found by the QC test users_2nodes).
+ if [ ! -z "$current_userinfo" ] && [ "$current_userinfo" != "_1" ]; then
+  current_pool=$(echo "$current_userinfo" | awk -F'/' '{print $2}')
+  
+  # Check if user already has a home folder (pool is not "NoHome")
+  if [ -n "$current_pool" ] && [ "$current_pool" != "NoHome" ]; then
+   docker exec etcdclient /TopStor/logmsg.py Unlin1028 warning $userreq $shortname $current_pool
+   docker exec etcdclient /TopStor/logqueue.py `basename "$0"` finish $userreq
+   exit
+  fi
+ fi
+ 
+ echo $pullrepli | grep repli
+ if [ $? -ne 0 ];
+ then
+ 	/pace/etcdget.py $etcd volumes --prefix | grep $shortname
+ 	if [ $? -eq 0 ];
+ 	then
+  		docker exec etcdclient /TopStor/logmsg.py Unlin1021vv warning $userreq $shortname
+  		docker exec etcdclient /TopStor/logqueue.py `basename "$0"` finish $userreq
+  		exit
+ 	fi
+ fi
+ usermod -d /$DG/$name $shortname
+ echo privileged $name >> /root/volcreate
+ echo afterusersinfo >> /root/volcreate
+ echo name=$name
+ /sbin/zfs list | grep  "$shortname" 
+ if [ $? -eq 0  ];
+ then 
+  docker exec etcdclient /TopStor/logmsg.py NFS1003 warning $userreq $DG/$name
+ fi
+ echo afterzfslist info $userreq $DG/$name >> /root/volcreate
+ docker exec etcdclient /TopStor/logmsg.py NFS1004 info $userreq $DG/$name
+ echo here4 >> /root/volcreate
+ /sbin/zfs create -o overlay=on -o acltype=posixacl -o aclinherit=passthrough -o xattr=sa -o redundant_metadata=most -o atime=off -o quota=$quota -o dedup=$zdedup -o compression=$zcomp  $DG/$name  
+ if [ $? -ne 0 ];
+ then
+  echo here5 >> /root/volcreate
+  docker exec etcdclient /TopStor/logmsg.py NFS1006 error $userreq $DG/$name
+  docker exec etcdclient /TopStor/logqueue.py `basename "$0"` finish $userreq 
+  exit
+ fi
+ /sbin/zfs set prot:kind=HOMEE $DG/$name
+ /sbin/zfs set ip:addr=$ipaddr $DG/$name
+ /sbin/zfs set ip:subnet=$ipsubnet $DG/$name
+ /sbin/zfs set status:mount=$active $DG/$name
+ usermod -d /$DG/$name $shortname
+ chown $shortname /$DG/$name
+ chgrp $shortname /$DG/$name
+ chmod 750 /$DG/$name
+ #chmod o-rwx /$DG/$shortname -R
+
+ shortname=`echo ${name} | rev | cut -d_ -f2- | rev`
+ yes | cp sharecifs.txt /TopStordata/smb.${name}
+ sed -i "s/Vtype/HOMEE/g"  /TopStordata/smb.${name}
+ sed -i "s/Rpool/$DG/g"  /TopStordata/smb.${name}
+ sed -i "s/Rname/$name/g"  /TopStordata/smb.${name}
+ sed -i "s/Rreadv/no/g"  /TopStordata/smb.${name}
+ sed -i "s/Rbrows/yes/g"  /TopStordata/smb.${name}
+ sed -i "s/Rwritev/$writev/g"  /TopStordata/smb.${name}
+ sed -i "s/Radmin/administrator/g"  /TopStordata/smb.${name}
+ sed -i "s/Rwritea/yes/g"  /TopStordata/smb.${name}
+ sed -i "s/Ripadd/$ipaddr/g"  /TopStordata/smb.${name}
+ sed -i "s/Ripsub/$ipsubnet/g"  /TopStordata/smb.${name}
+ sed -i "s/SHORTNAME/$shortname/g"  /TopStordata/smb.${name}
+ sed -i "s/NAMECIFS/$name/g"  /TopStordata/smb.${name}
+ sed -i "s/POOL/$DG/g" /TopStordata/smb.${name}
+ sed -i "s/no/no/g" /TopStordata/smb.${name}
+ sed -i "s/yes/yes/g" /TopStordata/smb.${name}
+ sed -i "s/administrator/administrator/g" /TopStordata/smb.${name}
+ sed -i "s/Yes/yes/g" /TopStordata/smb.${name}
+ sed -i "s/\@everyone/$writev/g" /TopStordata/smb.${name}
+ sed -i "s/IPADDRESS/$ipaddr/g" /TopStordata/smb.${name}
+ sed -i "s/IPSUBNET/$ipsubnet/g" /TopStordata/smb.${name}
+ sed -i "s/ACTIVE/$active/g" /TopStordata/smb.${name}
+ yes | cp /TopStordata/smb.$name /$DG/
+
+ echo /pace/etcdput.py $leaderip volumes/HOMEE/$myhost/$DG/$name $DG/$name/no/yes/$writev/administrator/yes/$ipaddr/$ipsubnet/$active
+ stamp=`date +%s`
+ ETCDCTL_API=3 /pace/etcdput.py $leaderip volumes/HOMEE/$myhost/$DG/$name $DG/$name/no/yes/$writev/administrator/yes/$ipaddr/$ipsubnet/$active
+ ETCDCTL_API=3 /pace/etcdput.py $leaderip sync/volumes/${DG}_$name/request volumes_$stamp
+ ETCDCTL_API=3 /pace/etcdput.py $leaderip sync/volumes/${DG}_$name/request/$leader volumes_$stamp
+
+ # Update user's home pool information in etcd
+ current_userinfo=$(/pace/etcdget.py $leaderip usersinfo/$shortname 2>/dev/null)
+
+ if [ ! -z "$current_userinfo" ]; then
+  # Replace /NoHome/ with the actual pool /$DG/ and update quota
+  updated_userinfo=$(echo "$current_userinfo" | sed "s|/NoHome/|/$DG/|g" | awk -F'/' -v quota="$quota" '{OFS="/"; $4=quota; print}')
+  ETCDCTL_API=3 /pace/etcdput.py $leaderip usersinfo/$shortname "$updated_userinfo"
+ fi
+
+ /TopStor/cifs.py $leader $leaderip $myhost $myhostip $etcd $DG $name $ipaddr $ipsubnet HOMEE 
+ /pace/putzpool.py $leaderip  
+ /TopStor/SnapshotCreateHourlytrend $leaderip $DG $name 0 24 7 system
+ docker exec etcdclient /TopStor/logmsg.py NFS1007 info $userreq $DG/$name
+ docker exec etcdclient /TopStor/logqueue.py `basename "$0"` finish $userreq
+fi

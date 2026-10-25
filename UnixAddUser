@@ -134,12 +134,26 @@ then
 		docker exec etcdclient docker exec etcdclient /TopStor/logmsg.py Unlin1024 info  $userreq $username $homedir
   		echo hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
   		echo /TopStor/VolumeCreateHOME $leaderip $homePool $username $size $username $HomeAddr $HomeSubnet active $userreq $myhost $userreq 
-  		/TopStor/VolumeCreateHOME $leaderip $homePool $username $size $username $HomeAddr $HomeSubnet active $userreq $myhost $userreq 
+  		# The home folder is a dataset of the pool: it can only be created on the node that has the pool imported.  This script runs on
+  		# the leader, which is not always that node (the zfs create failed silently and the user had no home folder, QC users_2nodes).
+  		if /sbin/zpool list -H -o name 2>/dev/null | grep -qx "$homePool"; then
+  		  /TopStor/VolumeCreateHOME $leaderip $homePool $username $size $username $HomeAddr $HomeSubnet active $userreq $myhost $userreq
+  		else
+  		  echo "home folder of $username: pool $homePool is not on this node, the node that has the pool creates it when the user is synced"
+  		fi
   		echo hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
 	fi
  fi
 
- # the leader does not run UnixAddUser_sync, which is what copies this script; the share containers read it from /hostetc
+ # On the follower that HAS the pool: create the home folder here (the leader could not).  homeonhost=yes skips the "user already has a
+# home folder" checks of VolumeCreateHOME (the leader has already written usersinfo/<user> with the pool).
+echo $pullsync | grep pull
+if [ $? -eq 0 ]
+then
+  echo $homePool | grep -q NoHome || { /sbin/zpool list -H -o name 2>/dev/null | grep -qx "$homePool" && /TopStor/VolumeCreateHOME $leaderip $homePool $username $size $username $HomeAddr $HomeSubnet active $userreq $myhost $userreq homeonhost=yes; }
+fi
+
+# the leader does not run UnixAddUser_sync, which is what copies this script; the share containers read it from /hostetc
  cp -f /TopStor/smbuserfix.sh /etc/smbuserfix.sh
  currentcifs=`docker ps | awk '{print $NF}' | grep CIFS | grep -v 'CIFS_'`
  echo "$currentcifs" | while read y
