@@ -56,6 +56,8 @@ cat /etc/ssh/sshd_config | grep Gateway | grep yes
 if [ $? -ne 0 ];
 then
  echo GatewayPorts yes >> /etc/ssh/sshd_config
+ # a dead replication peer must not keep its forwarded port (QC replication tests): drop its session after 30 s
+ grep -q '^ClientAliveInterval 10' /etc/ssh/sshd_config || printf 'ClientAliveInterval 10\nClientAliveCountMax 3\n' >> /etc/ssh/sshd_config
 fi
 cmdline=$@
 order=`cat /root/nodeconfigured`

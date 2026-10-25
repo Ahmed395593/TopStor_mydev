@@ -120,6 +120,9 @@ then
      cusers=`echo $usersall | awk -F'/' '{print $3}'`
      cusersleft=`echo $usersall | cut -d/ -f1-2`
      cusersright=`echo $usersall | cut -d/ -f4-`
+     # an empty list or the 'no' that UnixDelUser used to leave means no member: the user becomes the only member
+     cusers=`echo $cusers | tr ',' '\n' | grep -v -x -e '' -e no | paste -sd,`
+     [ -z "$cusers" ] && cusers=NoUser
      echo $cusers | grep -w NoUser
      if [ $? -ne 0 ];
      then
