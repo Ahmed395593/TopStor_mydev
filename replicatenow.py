@@ -33,7 +33,10 @@ def getnodeloc(receiver):
     receiverconn = subprocess.run(cmd.split(' '),stdout=subprocess.PIPE).stdout.decode().split('\n')
     if len(receiverconn)< 10:
         return 'not available'
-    receiverconn = [ rec for rec in receiverconn if 'ssh'+receiver in rec and 'Rremote' in rec ][0].split('ssh')[1].split('-N')[0]
+    found = [ rec for rec in receiverconn if 'ssh'+receiver in rec and 'Rremote' in rec ]
+    if not found:
+        return 'not available'
+    receiverconn = found[0].split('ssh')[1].split('-N')[0]
     host = receiverconn.split('/')[-1]
     
     return 'ssh'+receiverconn+host
@@ -195,6 +198,17 @@ def repliparam(snapshot, receiver, userreq='system'):
  snapused = '0' 
  cmd = ' /TopStor/repliSelection.py '+volume+' '+volquota+' '+snapshot
  nodeloc = getnodeloc(receiver)
+ if nodeloc == 'not available':
+  print('no tunnel to', receiver, ': starting the tunnels to the receivers')
+  subprocess.run(['/TopStor/activatetunnels.sh', leaderip], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=150)
+  waitedto = stamp() + 120
+  while nodeloc == 'not available' and stamp() < waitedto:
+   sleep(5)
+   nodeloc = getnodeloc(receiver)
+  if nodeloc == 'not available':
+   logmsg.sendlog('Partnerfa02','error',userreq, receiver.split('_')[0])
+   print('(fail) no tunnel to the receiver '+receiver)
+   return 'closed'
  cmd = nodeloc + cmd
  finalresponse = subprocess.run(cmd.split(' '),stdout=subprocess.PIPE).stdout.decode().split('result_')[1]
  print('finalresponse',finalresponse)

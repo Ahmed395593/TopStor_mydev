@@ -31,7 +31,7 @@ def submitkeys(partner, partnerip, isleader, myhost, myhostip, leaderip, replipo
     print('ssh -oBatchmode=yes -i /TopStordata/'+partner+'/'+partnerip+' -p '+repliport+' -oStrictHostKeyChecking=no '+partnerip)
     count = 0 
     result=subprocess.run(nodeloc.split()+['ls'],stdout=subprocess.PIPE)
-    while count < 10:
+    while count < 60:      # the key reaches the receiver asynchronously: give it a minute
         if result.returncode == 0:
             isitopen = 'open'
             print('it is open now')

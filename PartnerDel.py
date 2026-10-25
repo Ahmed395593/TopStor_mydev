@@ -50,6 +50,8 @@ def delpartner(*bargs):
  sendlog('Partner1003','info',userreq,partner)
  dels(etcdip,'Partner',partner)
  dels(etcdip,'repli',partner)
+ # the entry the sending cluster wrote for this partner (replireverse/<partner>/...): the pull loop must forget it
+ subprocess.run(['docker','exec','-e','ETCDCTL_API=3','etcdclient','etcdctl','--endpoints='+leaderip+':2379','del','--prefix','replireverse/'+partner+'/'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
  dels(leaderip,'sync', partner)
  cmdline = '/TopStor/remotetunnelremove.sh  '+partner
  result = subprocess.run(cmdline.split(),stdout=subprocess.PIPE)

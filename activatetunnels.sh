@@ -1,5 +1,8 @@
 #!/bin/bash
 set -u   # Treat unset variables as an error
+# one run at a time (the watchdog starts it every loop): a second run leaves at once
+exec 9>/run/activatetunnels.lock
+flock -n 9 || { echo "activatetunnels already running"; exit 0; }
 
 echo "========== Starting Combined Script =========="
 echo "Arguments received: $@"
@@ -180,6 +183,18 @@ for receiver in "${receivers_array[@]}"; do
         # Check if this node already failed
         echo "$failednode" | grep -w "$new_primary_ip" > /dev/null
         if [ $? -eq 0 ]; then
+            # the receiver answered (its ready list was just read from it): the tunnel files of this node are stale
+            # (made by another leader, or before the partner was added again) - initialise the partner again, once
+            last=$(cat $current_dir/.reinit_$cluster 2>/dev/null || echo 0)
+            if [ "${reinitdone:-no}" != "$cluster" ] && [ $(( $(date +%s) - last )) -gt 600 ]; then
+                date +%s > $current_dir/.reinit_$cluster
+                echo "[ACTION] receiver $clusterip answers but $new_primary_ip failed with our files: the files of this node are stale, initialising the partner again"
+                mv $current_dir/$cluster $current_dir/$cluster.stale.$(date +%s) 2>/dev/null
+                /TopStor/etcdput.py $etcdip replinextport 2380
+                reinitdone=$cluster
+                Lremote='initialize'
+                break
+            fi
             echo "[ERROR] The discovered node ($new_primary_ip) is in the failed list. Remote cluster appears down."
             Lremote='receiver is down'
             break
