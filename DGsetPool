@@ -19,7 +19,7 @@ zpoolcreate() {
         zc_rc=$?
         if [ $zc_rc -eq 0 ]; then return 0; fi
         zc_try=$((zc_try+1))
-        if echo "$zc_err" | grep -q "resource busy\|refer to the same device" && [ $zc_try -lt 8 ]; then
+        if echo "$zc_err" | grep -q "resource busy\|refer to the same device\|currently unavailable" && [ $zc_try -lt 8 ]; then
             echo "zpool create busy, retry $zc_try" >> /root/dgcreateretry
             udevadm settle 2>/dev/null
             sleep 5

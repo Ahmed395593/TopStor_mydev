@@ -57,10 +57,19 @@ def dgsnewpool(data):
  print(cmndstring)
  subprocess.run(cmndstring.split(),stdout=subprocess.PIPE).stdout.decode('utf-8').replace('\n','').replace(' ','')
  print('pool is created')
- putzpool()
- alldsks = get(leaderip,'host','current')
- allinfo = getall(leaderip, alldsks)
- newpool = allinfo['disks'][selecteddisks[0]]['pool']
+ # the registry shows the new pool a little later: wait for it, and never the free-disk pseudo pool 'pree'
+ newpool = 'pree'
+ for attempt in range(12):
+  putzpool()
+  alldsks = get(leaderip,'host','current')
+  allinfo = getall(leaderip, alldsks)
+  newpool = allinfo['disks'][selecteddisks[0]]['pool']
+  if newpool != 'pree' and newpool in allinfo['pools']:
+   break
+  sleep(5)
+ if newpool == 'pree' or newpool not in allinfo['pools']:
+  print('the pool for the replication could not be created')
+  return 'No_vol_space'
  createdpool = newpool
  host = allinfo['pools'][createdpool]['host']
  hostip = allinfo['hosts'][host]['ipaddress']
