@@ -150,7 +150,15 @@ then
 echo $pullsync | grep pull
 if [ $? -eq 0 ]
 then
-  echo $homePool | grep -q NoHome || { /sbin/zpool list -H -o name 2>/dev/null | grep -qx "$homePool" && /TopStor/VolumeCreateHOME $leaderip $homePool $username $size $username $HomeAddr $HomeSubnet active $userreq $myhost $userreq homeonhost=yes; }
+  # one home folder per user: the single sync request and the full user sync can copy a new user at the same time
+  echo $homePool | grep -q NoHome || { /sbin/zpool list -H -o name 2>/dev/null | grep -qx "$homePool" && (
+    flock -w 120 9
+    if /sbin/zfs list -H -o name -d 1 $homePool 2>/dev/null | grep -qx "$homePool/${username}_[0-9]*"; then
+      echo "home folder of $username is already on $homePool"
+    else
+      /TopStor/VolumeCreateHOME $leaderip $homePool $username $size $username $HomeAddr $HomeSubnet active $userreq $myhost $userreq homeonhost=yes
+    fi
+  ) 9>/run/homecreate_$username.lock; }
 fi
 
 # the leader does not run UnixAddUser_sync, which is what copies this script; the share containers read it from /hostetc
