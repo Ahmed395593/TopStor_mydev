@@ -52,6 +52,32 @@ echo iam in >> /root/tmp2
   if [ $? -ne 0 ];
   then
    echo "zpool import $pool before destroy failed: `cat /root/dgdestroyerror`" >> /root/dgdestroyretry
+   if ! /sbin/zpool import 2>/dev/null | awk '$1=="pool:"{print $2}' | grep -qx "$pool"; then
+    # no device carries the pool: the pool does not exist any more, only its registry entries are left
+    echo "$pool is on no device: removing its registry entries" >> /root/dgdestroyretry
+    # the same entries (and sync requests for the other nodes) as the normal delete below
+    stamp=`date +%s`
+    /pace/etcddel.py $leaderip ActPool/$pool
+    /pace/etcdput.py $leaderip sync/ActPool/Del_ActPool_${pool}/request actpools_$stamp
+    /pace/etcdput.py $leaderip sync/ActPool/Del_ActPool_${pool}/request/$leader actpools_$stamp
+    /pace/etcddel.py $leaderip pools $pool
+    /pace/etcdput.py $leaderip sync/pools/Del_pools_${pool}/request pools_$stamp
+    /pace/etcdput.py $leaderip sync/pools/Del_pools_${pool}/request/$leader pools_$stamp
+    /pace/etcddel.py $leaderip vdevmin/$pool
+    /pace/etcdput.py $leaderip sync/vdevmin/Del_vdevmin_${pool}/request vdevmin_$stamp
+    /pace/etcdput.py $leaderip sync/vdevmin/Del_vdevmin_${pool}/request/$leader vdevmin_$stamp
+    /pace/etcddel.py $leaderip poolnxt/$pool
+    /pace/etcdput.py $leaderip sync/poolnxt/Del_poolnxt_${pool}/request poolnxt_$stamp
+    /pace/etcdput.py $leaderip sync/poolnxt/Del_poolnxt_${pool}/request/$leader poolnxt_$stamp
+    /pace/etcddel.py $leaderip activepool/$pool
+    /pace/etcdput.py $leaderip sync/activepool/Del_activepool::${pool}_--prefix/request activepool_$stamp
+    /pace/etcdput.py $leaderip sync/activepool/Del_activepool::${pool}_--prefix/request/$leader activepool_$stamp
+    /pace/etcddel.py $leaderip fixpool/$pool
+    /pace/etcddel.py $leaderip balance $pool
+    /pace/etcddel.py $leaderip destroying/$pool
+    docker exec etcdclient /TopStor/logmsg.py DGsu5 info $userreq $pool
+    exit
+   fi
    docker exec etcdclient /TopStor/logmsg.py DGfa5 error $userreq $pool
    exit
   fi
@@ -85,7 +111,7 @@ echo iam in >> /root/tmp2
   crontab /TopStordata/cronfile
   ETCDCTL_API=3 /pace/etcddel.py $leaderip balance $pool
   ETCDCTL_API=3 /pace/etcdput.py $leaderip sync/balancedtype/Del_balance_${pool}/request balancedtype_$stamp 
-  ETCDCTL_API=3 /pace/etcdput.py s$leaderip ync/balancedtype/Del_balance_${pool}/request/$leader balancedtype_$stamp 
+  ETCDCTL_API=3 /pace/etcdput.py $leaderip sync/balancedtype/Del_balance_${pool}/request/$leader balancedtype_$stamp 
   ETCDCTL_API=3 /pace/etcddel.py $leaderip vol $pool
   ETCDCTL_API=3 /pace/etcdput.py $leaderip sync/volumes/all/request volumes_$stamp 
   ETCDCTL_API=3 /pace/etcdput.py $leaderip sync/volumes/all/request/$leader volumes_$stamp 

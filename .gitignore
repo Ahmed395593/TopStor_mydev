@@ -29,3 +29,6 @@ img/
 fonts/
 netdata/
 Data/
+
+# lab backup copies of patched files
+*.bak_*
