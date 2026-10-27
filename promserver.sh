@@ -32,7 +32,8 @@ docker rm -f promgraf
 	# running `grafana cli` against the db, before that finishes corrupts the
 	# migration ("database is locked" / "index already exists") and the
 	# --rm container exits and vanishes. So wait until it is healthy first.
-	waitgrafana() { for i in $(seq 1 90); do curl -skf -o /dev/null https://$leaderip:4000/api/health && return 0; sleep 2; done; return 1; }
+	# Grafana answers on http or https (grafana.ini decides; it is plain http here): ask both, else every wait ran its 90 tries
+	waitgrafana() { for i in $(seq 1 90); do curl -sf -m 5 -o /dev/null http://$leaderip:4000/api/health && return 0; curl -skf -m 5 -o /dev/null https://$leaderip:4000/api/health && return 0; sleep 2; done; return 1; }
  	docker run --rm -d -p $leaderip:4000:3000 -v /promgraf/grafana.ini:/etc/grafana/grafana.ini -v /promgraf:/var/lib/grafana -v /promgraf/hosts:/etc/hosts -v /TopStor/grafana/TopStor.crt:/etc/grafana/TopStor.crt -v /TopStor/grafana/TopStor.key:/etc/grafana/TopStor.key --name promgraf grafana/grafana
 	phash=`/TopStor/etcdget.py $leaderip usershash/admin`
 	plhash=`/TopStor/decthis.sh admin $phash | awk -F'_result' '{print $2}'`
